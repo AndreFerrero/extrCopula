@@ -1,11 +1,12 @@
 library(copula)
+plots_folder <- here("sims", "estim", "block", "exp_compare_diag_methods", "results", "plots")
 
 # ----------------------------
 # Simulation parameters
 # ----------------------------
 set.seed(46)
 nk <- 12                  # block size (dimension of copula)
-theta_true <- 1.5          # true Gumbel copula parameter
+theta_true <- 4          # true Gumbel copula parameter
 K_vec <- c(5, 10, 20, 50, 100) # number of blocks
 nSim <- 100             # number of simulation replications
 
@@ -14,7 +15,7 @@ nSim <- 100             # number of simulation replications
 # ----------------------------
 
 # Simulate block-dependent data
-simulate_blocks <- function(K, n, cop) {
+simulate_blocks <- function(K, cop) {
   lapply(1:K, function(b) as.numeric(rCopula(1, cop)))
 }
 
@@ -70,18 +71,39 @@ theta_numerical <- function(blocks, n) {
 # Likelihood shape
 # ----------------------------
 
-# theta_grid <- seq(1.1, 10, length.out = 200)
+theta_grid <- seq(1.1, 10, length.out = 200)
 
-# # Choose one set of simulated blocks to evaluate
-# blocks_test <- simulate_blocks(K = 1000, n = n, cop = gumbelCopula(theta_true, dim=n))
+# Choose sets of simulated blocks
+blocks_test_theta1p5 <- simulate_blocks(K = 1000, cop = gumbelCopula(1.5, dim = nk))
+blocks_test_theta4   <- simulate_blocks(K = 1000, cop = gumbelCopula(4,   dim = nk))
+blocks_test_theta6   <- simulate_blocks(K = 1000, cop = gumbelCopula(6,   dim = nk))
 
-# # Compute log-likelihood for each theta
-# loglik_values <- sapply(theta_grid, function(th) -diagLogLik_max(th, blocks_test))
+# Compute log-likelihood curves
+dloglik_theta1p5 <- sapply(theta_grid, function(th) -diagLogLik_max(th, blocks_test_theta1p5, nk))
+dloglik_theta4   <- sapply(theta_grid, function(th) -diagLogLik_max(th, blocks_test_theta4,   nk))
+dloglik_theta6   <- sapply(theta_grid, function(th) -diagLogLik_max(th, blocks_test_theta6,   nk))
 
-# plot(theta_grid, loglik_values, type="l", lwd=2,
-#      xlab=expression(theta), ylab="Log-likelihood",
-#      main="Diagonal Log-Likelihood (Gumbel Copula)")
-# abline(v = theta_true, col="red", lty=2)
+png(file = here(plots_folder, "dloglik_theta.png"), width = 1200, height = 400)
+par(mfrow = c(1,3))
+
+# θ = 1.5
+plot(theta_grid, dloglik_theta1p5, type="l", lwd=2,
+     xlab=expression(theta), ylab="Log-likelihood", main="Theta = 1.5")
+abline(v = 1.5, col="red", lty=2)
+
+# θ = 4
+plot(theta_grid, dloglik_theta4, type="l", lwd=2,
+     xlab=expression(theta), ylab="Log-likelihood", main="Theta = 4")
+abline(v = 4, col="red", lty=2)
+
+# θ = 6
+plot(theta_grid, dloglik_theta6, type="l", lwd=2,
+     xlab=expression(theta), ylab="Log-likelihood", main="Theta = 6")
+abline(v = 6, col="red", lty=2)
+
+par(mfrow = c(1,1))
+dev.off()
+
 
 # ----------------------------
 # Simulation study
@@ -117,8 +139,7 @@ for(j in seq_along(K_vec)) {
 # ----------------------------
 # Visualization
 # ----------------------------
-plots_folder <- here("sims", "estim", "block", "exp_compare_diag_methods", "results", "plots")
-png(file = here(plots_folder, "compare_gumbel.png"))
+png(file = here(plots_folder, "compare_gumbel_theta4.png"))
 par(mfrow=c(1,2))
 boxplot(results_closed, names=paste0("K=", K_vec),
         main="Closed-form DMLE", col="lightblue", ylab=expression(hat(theta)))
