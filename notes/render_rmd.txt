@@ -1,1 +1,5 @@
 rmarkdown::render("notes/2025_11_17_dmle.Rmd")
+
+rmarkdown::render("notes/2025_11_18_block_estimation.Rmd")
+
+rmarkdown::render("notes/2025_11_19_copula_markov.Rmd")
