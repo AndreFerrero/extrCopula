@@ -356,3 +356,54 @@ Taking logarithms yields the log-likelihood
 \sum_{i=1}^n \log f(x_i).
 \label{eq:loglik}
 \end{align}
+
+Note that in the case of estimating only $\theta$, the log-likelihood is constant in the second term w.r.t. the parameter.
+
+To illustrate what happens to the MLE, we can compute the profile log-likelihood for a given sample with the following implementation.
+
+```{r, cache = TRUE}
+n <- 100            # dimension of the sample vector
+theta_true <- 2    # true Gumbel parameter
+
+cop <- gumbelCopula(param = theta_true, dim = n)
+U <- as.numeric(rCopula(1, cop))   # one vector of uniforms
+
+# lognormal margins:
+mu <- 0
+sigma <- 1
+X <- qlnorm(U, meanlog = mu, sdlog = sigma)
+
+# Margin estimation
+mu_hat <- mean(log(X))
+sigma_hat <- sd(log(X))
+
+u_hat <- plnorm(X, meanlog = mu_hat, sdlog = sigma_hat)
+
+# Gumbel log-likelihood
+loglik_gumbel <- function(theta, u) {
+  if (theta <= 1) return(-Inf)
+  cop <- gumbelCopula(param = theta, dim = length(u))
+  ll <- log(dCopula(u, copula = cop))
+  return(ll)
+}
+
+alpha_grid <- seq(1.0, 5, length.out = 200)
+ll_values <- sapply(alpha_grid, loglik_gumbel, u = u_hat)
+```
+
+```{r, echo = FALSE}
+plot(alpha_grid, ll_values, type = "l", lwd = 2,
+     xlab = expression(theta),
+     ylab = "Log-likelihood",
+     main = "Gumbel loglikelihood")
+abline(v = theta_true, col = "red", lwd = 2, lty = 2)
+legend("topright", legend = c("True theta"), col = "red", lwd = 2, lty = 2)
+```
+
+Note as well that for a too large sample size, the evaluation of the copula density is not feasible.
+
+```{r, error = TRUE}
+cop <- gumbelCopula(param = theta_true, dim = 1000)
+U <- as.numeric(rCopula(1, cop))
+dCopula(U, copula = cop)
+```
