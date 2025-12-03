@@ -10,9 +10,7 @@ data/
 *.rds
 *.RData
 
-# Plots
-*.png
-*.pdf
+
 
 # Logs
 *.log
