@@ -183,7 +183,6 @@ progress_dir <- tempdir()
 file.remove(list.files(progress_dir, pattern = "status_", full.names = TRUE))
 
 n_iter <- 12000
-burn_in <- 2000
 
 inits_list <- list()
 for (c in 1:n_chains) {
@@ -237,6 +236,8 @@ load(here(res_dir, "t_bayes_chains.Rdata"))
 
 chains_list <- value(futures_list)
 mcmc_obj <- mcmc.list(chains_list)
+
+burn_in <- n_iter/2
 mcmc_clean <- window(mcmc_obj, start = burn_in + 1, thin = 5)
 
 cat("\n--- DIAGNOSTICS ---\n")
