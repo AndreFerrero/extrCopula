@@ -5,14 +5,15 @@ library(mvtnorm)
 library(future)
 library(future.apply)
 library(MASS) # for kde2d
+library(progressr)
 
 set.seed(123)
 
 # -----------------------------------------------------------
 # 1. Simulate Data (Fréchet Margins with Mu = 0)
 # -----------------------------------------------------------
-n <- 150
-theta_true <- 3
+n <- 200
+theta_true <- 1.5
 
 # Fréchet Parameters
 alpha_true <- 3   # Shape (Tail index)
@@ -43,7 +44,7 @@ log_posterior_transformed <- function(param_trans, data) {
   alpha <- exp(param_trans[3])
   
   # Fixed location
-  mu_fixed <- 0
+  mu_fixed <- mu_true
 
   # 2. JACOBIAN ADJUSTMENT
   # log|J| = sum(log(derivs)) = sum(log(val)) for log-transform
@@ -145,7 +146,7 @@ plan(multisession, workers = n_chains)
 progress_dir <- tempdir()
 file.remove(list.files(progress_dir, pattern = "status_", full.names = TRUE))
 
-n_iter <- 20000 
+n_iter <- 12000
 
 inits_list <- list()
 for (c in 1:n_chains) {
@@ -153,7 +154,7 @@ for (c in 1:n_chains) {
   th_init <- runif(1, 2, 4)
   si_init <- runif(1, 3, 7)
   al_init <- runif(1, 2, 4)
-  
+
   # Transform Inits
   inits_list[[c]] <- c(
     log(th_init - 1),
@@ -164,28 +165,36 @@ for (c in 1:n_chains) {
 
 futures_list <- list()
 for (c in 1:n_chains) {
-  futures_list[[c]] <- future({
-      run_worker_trans(X, n_iter, inits_list[[c]], c, progress_dir)
+    futures_list[[c]] <- future({
+      res <- run_worker_trans(X, n_iter, inits_list[[c]], c, progress_dir)
+      cat(sprintf("Chain %d done\n", c))
+      res
     }, seed = TRUE
   )
 }
 
-cat("MCMC Started (Log-Transformed Sampling)...\n")
+paste("MCMC Started (Correct Log-Normal Specification)...\n")
 
+# Robust Monitoring Loop
 while (!all(resolved(futures_list))) {
-  status_texts <- character(n_chains)
-  for (c in 1:n_chains) {
-    fpath <- file.path(progress_dir, paste0("status_", c, ".txt"))
-    if (file.exists(fpath)) {
-      info <- suppressWarnings(try(readLines(fpath, n = 1), silent = TRUE))
-      if (length(info) > 0) {
-        parts <- strsplit(info, "\\|")[[1]]
-        status_texts[c] <- sprintf("C%d: %3s%% (Acc: %4s%%)", c, parts[1], parts[2])
-      }
+    status_texts <- character(n_chains)
+    for (c in 1:n_chains) {
+        fpath <- file.path(progress_dir, paste0("status_", c, ".txt"))
+        if (file.exists(fpath)) {
+            info <- suppressWarnings(try(readLines(fpath, n = 1), silent = TRUE))
+            if (inherits(info, "try-error") || length(info) == 0) {
+                status_texts[c] <- "Init..."
+            } else {
+                parts <- strsplit(info, "\\|")[[1]]
+                status_texts[c] <- sprintf("C%d: %3s%% (Acc: %4s%%)", c, parts[1], parts[2])
+            }
+        } else {
+            status_texts[c] <- "Init..."
+        }
     }
-  }
-  cat("\r", paste(status_texts, collapse = " | "))
-  Sys.sleep(0.5)
+    cat("\r", paste(status_texts, collapse = " | "))
+    flush.console()
+    Sys.sleep(0.5)
 }
 cat("\nDone.\n")
 
@@ -193,8 +202,8 @@ chains_raw <- value(futures_list)
 
 res_dir <- here("sims", "estim", "joint", "res")
 
-save(chains_raw, file = here(res_dir, "transf_frechet_bayes_chains.Rdata"))
-load(here(res_dir, "lognormal_bayes_chains.Rdata"))
+# save(chains_raw, file = here(res_dir, "transf_frechet_bayes_chains.Rdata"))
+load(here(res_dir, "transf_frechet_bayes_chains.Rdata"))
 
 # -----------------------------------------------------------
 # 5. Post-Processing: Back-Transform Chains
@@ -213,7 +222,7 @@ for(c in 1:n_chains) {
 }
 
 mcmc_obj <- mcmc.list(chains_natural)
-burn_in <- 5000
+burn_in <- round(n_iter/3, 0)
 mcmc_clean <- window(mcmc_obj, start = burn_in + 1, thin = 5)
 
 # Analysis & Diagnostics
@@ -246,12 +255,20 @@ print(round(cor(mat_all), 3))
 # -----------------------------------------------------------
 # 6. RECOVERING G (Finite Sample Diagonal Method)
 # -----------------------------------------------------------
-y_grid <- seq(0, max(X) * 2, length.out = 200) 
+mat_all <- as.matrix(mcmc_clean)
+y_grid <- seq(0, max(X) * 10, length.out = 200) 
 n_sims <- nrow(mat_all)
 n_data <- length(X)
 
+gumbel_diag <- function(u, theta, n){
+    # METHOD A: Exact
+  neg_log_F <- -log(u)
+  t_val <- neg_log_F^theta
+  t_sum <- n * t_val
+  exp(-t_sum^(1/theta))
+}
+
 G_exact <- matrix(0, n_sims, length(y_grid))
-G_power <- matrix(0, n_sims, length(y_grid))
 
 cat("\nReconstructing G...\n")
 
@@ -265,36 +282,25 @@ for(i in 1:n_sims) {
   
   F_y <- numeric(length(y_grid))
   valid <- z > 0
-  F_y[valid] <- exp(-z[valid]^(-al))
+  F_y[valid] <- pfrechet(z[valid], loc = mu_true, scale = si, shape = al)
   F_y <- pmin(pmax(F_y, 1e-15), 1 - 1e-15)
   
   # METHOD A: Exact
-  neg_log_F <- -log(F_y)
-  t_val <- neg_log_F^th
-  t_sum <- n_data * t_val
-  G_exact[i, ] <- exp(-t_sum^(1/th))
-  
-  # METHOD B: Power Approx
-  n_eff <- n_data^(1/th)
-  G_power[i, ] <- F_y^n_eff
+    G[i, ] <- gumbel_diag(F_y, th, n_data)
 }
 
 # --- True G ---
 z_true <- (y_grid - mu_true) / sigma_true
 F_true <- numeric(length(y_grid))
 valid_true <- z_true > 0
-F_true[valid_true] <- exp(-z_true[valid_true]^(-alpha_true))
+F_true[valid_true] <- pfrechet(z_true[valid_true], loc = mu_true, scale = sigma_true, shape = alpha_true)
 
-t_val_true <- (-log(F_true))^theta_true
-t_sum_true <- n * t_val_true
-G_true <- exp(-t_sum_true^(1/theta_true))
+G_true <- gumbel_diag(F_true, theta_true, n_data)
 
 # --- Plotting ---
 G_mean <- colMeans(G_exact)
 G_lower <- apply(G_exact, 2, quantile, 0.05)
 G_upper <- apply(G_exact, 2, quantile, 0.95)
-
-G_pow_mean <- colMeans(G_power)
 
 par(mfrow = c(1, 1))
 plot(y_grid, G_mean, type = "l", lwd = 2, col = "blue",
@@ -306,9 +312,3 @@ polygon(c(y_grid, rev(y_grid)), c(G_lower, rev(G_upper)),
         col = rgb(0, 0, 1, 0.1), border = NA)
 
 lines(y_grid, G_true, col = "red", lwd = 2, lty = 2)
-# lines(y_grid, G_pow_mean, col = "darkgreen", lwd = 2, lty = 3)
-
-# legend("bottomright", 
-#        legend = c("Posterior Mean", "True G", "Power Diag Approx"),
-#        col = c("blue", "red", "darkgreen"), 
-#        lwd = 2, lty = c(1, 2, 3))
