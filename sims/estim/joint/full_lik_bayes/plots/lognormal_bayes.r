@@ -9,7 +9,7 @@ set.seed(123)
 # -----------------------------------------------------------
 # 1. Simulate Data (Log-Normal Margins)
 # -----------------------------------------------------------
-n <- 150
+n <- 100000
 theta_true <- 3
 
 # Log-Normal Parameters (corresponding to Normal on log-scale)
