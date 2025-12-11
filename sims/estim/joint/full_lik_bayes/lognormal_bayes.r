@@ -86,7 +86,7 @@ log_posterior <- function(param_vec, data) {
 # -----------------------------------------------------------
 # 3. Worker: Block Adaptive Metropolis
 # -----------------------------------------------------------
-run_worker <- function(data, n_iter, init_vals, chain_id, progress_dir) {
+run_worker <- function(data, n_iter, burn_in, init_vals, chain_id = 1) {
     library(copula)
     library(mvtnorm)
     library(coda)
@@ -97,27 +97,25 @@ run_worker <- function(data, n_iter, init_vals, chain_id, progress_dir) {
     colnames(chain) <- p_names
 
     curr_par <- init_vals
-
-    # Robust Start
     curr_lp <- log_posterior(curr_par, data)
     if (!is.finite(curr_lp)) {
         stop("Worker failed: Initial values yield -Inf posterior.")
     }
 
-    # --- ADAPTIVE METROPOLIS SETTINGS ---
     cov_mat <- diag(rep(0.01, n_par))
-    # Optimal Scaling for d=3
     sd_scale <- (2.38^2) / n_par
     eps <- 1e-6 * diag(n_par)
-
-    adapt_start <- 500
+    adapt_start <- 100
+    adapt_stop <- burn_in
+    adapt_freq <- 50
     total_accepts <- 0
-    status_file <- file.path(progress_dir, paste0("status_", chain_id, ".txt"))
 
+    # --- PROGRESS BAR ---
+    pb <- txtProgressBar(min = 0, max = n_iter, style = 3)
+    
     for (i in 1:n_iter) {
         # 1. BLOCK PROPOSAL
         prop_val <- rmvnorm(1, mean = curr_par, sigma = cov_mat)[1, ]
-
         prop_lp <- log_posterior(prop_val, data)
         ratio <- prop_lp - curr_lp
 
@@ -130,35 +128,32 @@ run_worker <- function(data, n_iter, init_vals, chain_id, progress_dir) {
         chain[i, ] <- curr_par
 
         # 3. ADAPTATION
-        if (i > adapt_start && i %% 50 == 0) {
+        if (i > adapt_start && i < adapt_stop && i %% adapt_freq == 0) {
             emp_cov <- cov(chain[1:i, ])
             cov_mat <- (sd_scale * emp_cov) + eps
         }
 
-        # 4. DASHBOARD
-        if (i %% 50 == 0 || i == n_iter) {
-            rate <- (total_accepts / i) * 100
-            pct <- as.integer((i / n_iter) * 100)
-            try(
-                {
-                    writeLines(sprintf("%d|%.1f", pct, rate), status_file)
-                },
-                silent = TRUE
-            )
+        # 4. UPDATE PROGRESS BAR
+        setTxtProgressBar(pb, i)
+        if (i %% 50 == 0) {  # Print acceptance rate every 50 iterations
+            cat(sprintf("Chain %d | Iteration %d/%d | Acceptance rate: %.2f%%\n", 
+                        chain_id, i, n_iter, 100 * total_accepts / i))
         }
     }
+
+    close(pb)
+    cat(sprintf("Chain %d | Final Acceptance Rate: %.2f%%\n", 
+                chain_id, 100 * total_accepts / n_iter))
+    
     mcmc(chain)
 }
 
 # -----------------------------------------------------------
 # 4. Execution
 # -----------------------------------------------------------
-n_chains <- 3
-plan(multisession, workers = n_chains)
-progress_dir <- tempdir()
-file.remove(list.files(progress_dir, pattern = "status_", full.names = TRUE))
-
+n_chains <- 4
 n_iter <- 10000
+burn_in <- n_iter / 2
 
 inits_list <- list()
 for (c in 1:n_chains) {
@@ -169,39 +164,36 @@ for (c in 1:n_chains) {
     )
 }
 
-futures_list <- list()
-for (c in 1:n_chains) {
-    futures_list[[c]] <- future(
-        {
-            run_worker(X, n_iter, inits_list[[c]], c, progress_dir)
-        },
-        seed = TRUE
+cl <- makeCluster(n_chains, outfile = "")
+
+# Load libraries and export functions to cores
+clusterEvalQ(cl, {
+    library(copula)
+    library(mvtnorm)
+    library(coda)
+})
+
+clusterExport(cl, varlist = c(
+    "X", "n_iter", "burn_in", "inits_list", "log_posterior",
+    "run_worker"
+))
+
+# Run Parallel Chains
+cat("Starting Parallel MCMC...\n")
+results <- parLapply(cl, 1:n_chains, function(cid) {
+    run_worker(
+        data = X,
+        n_iter = n_iter,
+        burn_in = burn_in,
+        init_vals = inits_list[[cid]],
+        chain_id = cid
     )
-}
+})
 
-paste("MCMC Started (Correct Log-Normal Specification)...\n")
+# save(results, file = here(res_dir, "adaptstop_lognormal_bayes_chains.Rdata"))
 
-# Robust Monitoring Loop
-while (!all(resolved(futures_list))) {
-    status_texts <- character(n_chains)
-    for (c in 1:n_chains) {
-        fpath <- file.path(progress_dir, paste0("status_", c, ".txt"))
-        if (file.exists(fpath)) {
-            info <- suppressWarnings(try(readLines(fpath, n = 1), silent = TRUE))
-            if (inherits(info, "try-error") || length(info) == 0) {
-                status_texts[c] <- "Init..."
-            } else {
-                parts <- strsplit(info, "\\|")[[1]]
-                status_texts[c] <- sprintf("C%d: %3s%% (Acc: %4s%%)", c, parts[1], parts[2])
-            }
-        } else {
-            status_texts[c] <- "Init..."
-        }
-    }
-    cat("\r", paste(status_texts, collapse = " | "))
-    flush.console()
-    Sys.sleep(0.5)
-}
+stopCluster(cl)
+
 cat("\nDone.\n")
 
 # -----------------------------------------------------------
@@ -209,17 +201,13 @@ cat("\nDone.\n")
 # -----------------------------------------------------------
 res_dir <- here("sims", "estim", "joint", "full_lik_bayes", "res")
 
-# save(futures_list, file = here(res_dir, "lognormal_bayes_chains.Rdata"))
-load(here(res_dir, "lognormal_bayes_chains.Rdata"))
+# load(here(res_dir, "lognormal_bayes_chains.Rdata"))
 
-burn_in <- n_iter / 2
-
-chains_list <- value(futures_list)
+chains_list <- value(results)
 mcmc_obj <- mcmc.list(chains_list)
 mcmc_clean <- window(mcmc_obj, start = burn_in + 1, thin = 5)
 
 summary(mcmc_clean)
-
 
 # DIAGNOSTICS
 print(gelman.diag(mcmc_clean))
@@ -274,68 +262,41 @@ abline(v = sigma_true, col = "red", lwd = 2, lty = 2)
 legend("topright", c("Posterior", "True"), col = c("blue", "red"), lty = 1:2)
 par(mfrow = c(1, 1))
 
-
-# 1. Define the range you want to view
-# (Make sure these numbers are within the range of your current mcmc_clean)
-start_iter <- 1
-end_iter <- 1000
-
-# 2. Create a subset object using window()
-mcmc_zoom <- window(mcmc_obj, start = start_iter, end = end_iter)
-
-# 3. Plot
-par(mfrow = c(1, 3))
-
-plot(mcmc_zoom[, "theta"],
-    main = "Theta",
-    density = FALSE, smooth = FALSE, auto.layout = FALSE
-)
-plot(mcmc_zoom[, "sigma"],
-    main = "Sigma",
-    density = FALSE, smooth = FALSE, auto.layout = FALSE
-)
-plot(mcmc_zoom[, "mu"],
-    main = "Mu",
-    density = FALSE, smooth = FALSE, auto.layout = FALSE
-)
-
-par(mfrow = c(1, 1))
-
 # ==============================================================================
 # 6. Recovering G
 # ==============================================================================
 mat_all <- as.matrix(mcmc_clean)
-y_grid <- seq(0, max(X) * 10, length.out = 200) 
+y_grid <- seq(0, max(X) * 10, length.out = 200)
 n_sims <- nrow(mat_all)
 n_data <- length(X)
 
-gumbel_diag <- function(u, theta, n){
+gumbel_diag <- function(u, theta, n) {
     # METHOD A: Exact
-  neg_log_F <- -log(u)
-  t_val <- neg_log_F^theta
-  t_sum <- n * t_val
-  exp(-t_sum^(1/theta))
+    neg_log_F <- -log(u)
+    t_val <- neg_log_F^theta
+    t_sum <- n * t_val
+    exp(-t_sum^(1 / theta))
 }
 
 G <- matrix(0, n_sims, length(y_grid))
 
 cat("\nReconstructing G...\n")
 
-for(i in 1:n_sims) {
-  th <- mat_all[i, "theta"]
-  si <- mat_all[i, "sigma"]
-  mu <- mat_all[i, "mu"]
-  
-  # Mu fixed at 0
-  z <- (y_grid - mu) / si
-  
-  F_y <- numeric(length(y_grid))
-  valid <- z > 0
-  F_y[valid] <- plnorm(z[valid], meanlog = mu, sdlog = si)
-  F_y <- pmin(pmax(F_y, 1e-15), 1 - 1e-15)
-  
-  # METHOD A: Exact
-  G[i, ] <- gumbel_diag(F_y, th, n_data)
+for (i in 1:n_sims) {
+    th <- mat_all[i, "theta"]
+    si <- mat_all[i, "sigma"]
+    mu <- mat_all[i, "mu"]
+
+    # Mu fixed at 0
+    z <- (y_grid - mu) / si
+
+    F_y <- numeric(length(y_grid))
+    valid <- z > 0
+    F_y[valid] <- plnorm(z[valid], meanlog = mu, sdlog = si)
+    F_y <- pmin(pmax(F_y, 1e-15), 1 - 1e-15)
+
+    # METHOD A: Exact
+    G[i, ] <- gumbel_diag(F_y, th, n_data)
 }
 
 # --- True G ---
@@ -348,16 +309,21 @@ G_true <- gumbel_diag(F_true, theta_true, n_data)
 
 # --- Plotting ---
 G_mean <- colMeans(G)
+G_median <- apply(G, 2, median)
 G_lower <- apply(G, 2, quantile, 0.05)
 G_upper <- apply(G, 2, quantile, 0.95)
 
 par(mfrow = c(1, 1))
-plot(y_grid, G_mean, type = "l", lwd = 2, col = "blue",
-     ylim = c(0, 1), 
-     main = "Estimated Limit Distribution G",
-     xlab = "y", ylab = "P(Mn <= y)")
+plot(y_grid, G_mean,
+    type = "l", lwd = 2, col = "blue",
+    ylim = c(0, 1),
+    main = "Estimated Limit Distribution G",
+    xlab = "y", ylab = "P(Mn <= y)"
+)
 
-polygon(c(y_grid, rev(y_grid)), c(G_lower, rev(G_upper)), 
-        col = rgb(0, 0, 1, 0.1), border = NA)
+lines(y_grid, G_median, col = "orange", lwd = 2)
+polygon(c(y_grid, rev(y_grid)), c(G_lower, rev(G_upper)),
+    col = rgb(0, 0, 1, 0.1), border = NA
+)
 
 lines(y_grid, G_true, col = "red", lwd = 2, lty = 2)
