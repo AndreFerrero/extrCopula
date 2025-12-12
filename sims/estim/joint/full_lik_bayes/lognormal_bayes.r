@@ -201,9 +201,9 @@ cat("\nDone.\n")
 # -----------------------------------------------------------
 res_dir <- here("sims", "estim", "joint", "full_lik_bayes", "res")
 
-# load(here(res_dir, "lognormal_bayes_chains.Rdata"))
+load(here(res_dir, "lognormal_bayes_chains.Rdata"))
 
-chains_list <- value(results)
+chains_list <- value(futures_list)
 mcmc_obj <- mcmc.list(chains_list)
 mcmc_clean <- window(mcmc_obj, start = burn_in + 1, thin = 5)
 
