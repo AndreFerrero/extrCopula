@@ -152,8 +152,8 @@ run_worker <- function(data, n_iter, burn_in, init_vals, chain_id = 1) {
 # 4. Execution
 # -----------------------------------------------------------
 n_chains <- 4
-n_iter <- 20000
-burn_in <- n_iter / 2
+n_iter <- 30000
+burn_in <- n_iter / 3
 
 inits_list <- list()
 for (c in 1:n_chains) {
@@ -315,3 +315,6 @@ polygon(c(y_grid, rev(y_grid)), c(G_lower, rev(G_upper)),
 )
 
 lines(y_grid, G_true, col = "red", lwd = 2, lty = 2)
+
+legend("bottomright", c("True Gr", "Posterior Mean", "Posterior Median"), col = c("red", "blue", "orange"),
+lty = c(2, 1, 1), lwd = c(2, 2, 2))
