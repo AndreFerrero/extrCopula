@@ -1,8 +1,8 @@
 library(copula)
 library(coda)
 library(mvtnorm)
-library(future)
-library(future.apply)
+library(parallel)
+library(here)
 
 set.seed(123)
 
