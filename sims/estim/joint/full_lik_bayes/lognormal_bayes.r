@@ -190,8 +190,11 @@ results <- parLapply(cl, 1:n_chains, function(cid) {
     )
 })
 
-res_dir <- here("sims", "estim", "joint", "full_lik_bayes", "res")
-save(results, file = here(res_dir, "correct_adapt_lognormal_bayes.Rdata"))
+full_lik_bayes_dir <- here("sims", "estim", "joint", "full_lik_bayes")
+res_dir <- here(full_lik_bayes_dir, "res")
+plots_dir <- here(full_lik_bayes_dir, "plots")
+
+# save(results, file = here(res_dir, "correct_adapt_lognormal_bayes.Rdata"))
 
 stopCluster(cl)
 
@@ -203,8 +206,7 @@ cat("\nDone.\n")
 
 load(here(res_dir, "correct_adapt_lognormal_bayes.Rdata"))
 
-chains_list <- value(results)
-mcmc_obj <- mcmc.list(chains_list)
+mcmc_obj <- mcmc.list(results)
 mcmc_clean <- window(mcmc_obj, start = burn_in + 1, thin = 5)
 
 summary(mcmc_clean)
@@ -214,16 +216,21 @@ print(gelman.diag(mcmc_clean))
 print(effectiveSize(mcmc_clean))
 
 # TRACEPLOTS
+pdf(here(plots_dir, "lognormal_chains_20thousand.pdf"))
 par(mfrow = c(1, 3))
 plot(mcmc_clean[, "theta"], main = "Theta", density = FALSE, auto.layout = FALSE)
 plot(mcmc_clean[, "sigma"], main = "Sigma", density = FALSE, auto.layout = FALSE)
 plot(mcmc_clean[, "mu"], main = "Mu", density = FALSE, auto.layout = FALSE)
 par(mfrow = c(1, 1))
+dev.off()
 
 # Pairs posterior
 pairs(as.matrix(mcmc_clean))
 
+acf(as.matrix(mcmc_clean))
+
 # DENSITIES
+pdf(here(plots_dir, "lognormal_posterior_20thousand.pdf"))
 par(mfrow = c(1, 3))
 theta_dens_est <- density(as.matrix(mcmc_clean)[, "theta"])
 plot(theta_dens_est,
@@ -249,6 +256,7 @@ plot(sigma_dens_est,
 abline(v = sigma_true, col = "red", lwd = 2, lty = 2)
 legend("topright", c("Posterior", "True"), col = c("blue", "red"), lty = 1:2)
 par(mfrow = c(1, 1))
+dev.off()
 
 # ==============================================================================
 # 6. Recovering G
