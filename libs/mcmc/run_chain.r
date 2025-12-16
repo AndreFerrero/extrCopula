@@ -29,6 +29,9 @@ run_chain <- function(
   # Initialize proposal state
   prop_state <- proposal$init_state(param)
 
+  # Initialize progress bar
+  pb <- txtProgressBar(min = 0, max = n_iter, style = 3)
+
   for (i in seq_len(n_iter)) {
 
     step <- mh_step(
@@ -49,8 +52,13 @@ run_chain <- function(
     )
 
     samples[i, ] <- param
+
+    # Update progress bar
+    setTxtProgressBar(pb, i)
   }
 
+  close(pb)
+  
   colnames(samples) <- names(init)
 
   list(
