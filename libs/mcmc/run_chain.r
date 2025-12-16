@@ -63,6 +63,7 @@ run_chain <- function(
 
   list(
     samples = samples,
-    accept_rate = mean(accept)
+    accept_rate = mean(accept),
+    conv_state = prop_state
   )
 }
