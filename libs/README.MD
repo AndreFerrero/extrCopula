@@ -7,7 +7,7 @@ This folder contains reusable code with a modular structure, with the intention 
 Here we keep all the MCMC related code.
 
 - `adaptation`: Adaptation schemes
-- `engines`: MCMC core step structure (e.g Metropolis Hastings step)
+- `engines`: MCMC core step structure (e.g. Metropolis Hastings step)
 - `proposals`: Proposal distributions (e.g. Multivariate gaussian)
 - `run_chain.r`: Single chain loop combining previous pieces
 
