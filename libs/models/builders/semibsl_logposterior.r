@@ -19,7 +19,6 @@ build_semibsl_logposterior <- function(
   simulator,
   sum_stats,
   n_sim,
-  transform = NULL,
   inverse_transform = NULL,
   log_jacobian = NULL,
   margin_prior = NULL,

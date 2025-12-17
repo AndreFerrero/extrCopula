@@ -12,7 +12,6 @@ source("libs/packages.R")
 #' @return Log posterior density (up to normalising constant)
 #' 
 build_logposterior <- function(copula, margin, param_map, data,
-                               transform = NULL,
                                inverse_transform = NULL,
                                log_jacobian = NULL,
                                margin_prior = NULL,
