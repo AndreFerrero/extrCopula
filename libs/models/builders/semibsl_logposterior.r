@@ -27,10 +27,12 @@ build_semibsl_logposterior <- function(
   # Precompute observed summary statistics
   y_obs <- sum_stats(data)
 
-  function(param_in) {
+  function(param_init) {
 
-    # Apply inverse transform if needed
-    param <- if (!is.null(inverse_transform)) inverse_transform(param_in) else param_in
+    # Apply inverse transform if given
+    # param is always the parameter in the original space
+    # no transformation leaves param = param_init
+    param <- if (!is.null(inverse_transform)) inverse_transform(param_init) else param_init
 
     param_m <- param[param_map$margin]
     param_c <- param[param_map$copula]
@@ -87,7 +89,7 @@ build_semibsl_logposterior <- function(
     total_loglik <- loglik_marg + loglik_copula
 
     # Jacobian adjustment if in transformed space
-    logjac <- if (!is.null(log_jacobian)) log_jacobian(param_in) else 0
+    logjac <- if (!is.null(log_jacobian)) log_jacobian(param_init) else 0
 
     logprior + total_loglik + logjac
   }

@@ -16,10 +16,12 @@ build_logposterior <- function(copula, margin, param_map, data,
                                margin_prior = NULL,
                                copula_prior = NULL) {
   
-  function(param_in) {
+  function(param_init) {
     
     # Apply inverse transform if given
-    param <- if (!is.null(inverse_transform)) inverse_transform(param_in) else param_in
+    # param is always the parameter in the original space
+    # no transformation leaves param = param_init
+    param <- if (!is.null(inverse_transform)) inverse_transform(param_init) else param_init
     
     param_m <- param[param_map$margin]
     param_c <- param[param_map$copula]
@@ -39,7 +41,7 @@ build_logposterior <- function(copula, margin, param_map, data,
           copula$log_density(u, param_c)
     
     # 3. Jacobian adjustment if in transformed space
-    logjac <- if (!is.null(log_jacobian)) log_jacobian(param_in) else 0
+    logjac <- if (!is.null(log_jacobian)) log_jacobian(param_init) else 0
     
     logprior + loglik + logjac
   }
