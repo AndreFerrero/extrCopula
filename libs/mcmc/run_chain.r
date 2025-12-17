@@ -7,7 +7,7 @@
 #' @param adapt Adaptation object
 #'
 #' @return List with samples matrix and acceptance rate
-#' 
+
 source("libs/packages.R")
 
 run_chain <- function(
@@ -34,6 +34,7 @@ run_chain <- function(
 
   for (i in seq_len(n_iter)) {
 
+    # MH step, returns proposal with acceptance and logposterior info
     step <- mh_step(
       param = param,
       logpost = logpost,
