@@ -34,8 +34,8 @@ build_semibsl_logposterior <- function(
     param <- if (!is.null(transform$to_natural)) transform$to_natural(param_in) else param_in
 
     # Prior
-    lp <- log_prior(param)
-    if (!is.finite(lp)) return(-Inf)
+    logprior <- log_prior(param)
+    if (!is.finite(logprior)) return(-Inf)
 
     # Simulate n_sim datasets and compute summary statistics
     sim_stats <- matrix(NA, nrow = n_sim, ncol = length(y_obs))
@@ -81,8 +81,8 @@ build_semibsl_logposterior <- function(
     total_loglik <- loglik_marg + loglik_copula
 
     # Jacobian adjustment if in transformed space
-    jac <- if (!is.null(transform$log_jacobian)) transform$log_jacobian(param_in) else 0
+    logjac <- if (!is.null(transform$log_jacobian)) transform$log_jacobian(param_in) else 0
 
-    lp + total_loglik + jac
+    logprior + total_loglik + logjac
   }
 }
