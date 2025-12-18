@@ -1,9 +1,10 @@
 #' Haario adaptive covariance scheme
 #'
 #' @param eps Small jitter added to covariance diagonal
-#'
+#' @param t0 stating adaptation
+#' 
 #' @return Adaptation object
-adapt_haario <- function(eps = 1e-6) {
+adapt_haario <- function(eps = 1e-6, t0 = 1000) {
 
   list(
 
@@ -15,9 +16,11 @@ adapt_haario <- function(eps = 1e-6) {
     #' @param iter Current iteration number
     update = function(state, param, accept, iter) {
 
-      if (iter == 1) {
+      if (iter <= t0) return(state)
+
+      if (iter == t0 + 1) {
         state$mean <- param
-        state$cov  <- matrix(0, length(param), length(param))
+        state$cov  <- diag(1e-3, length(param))
         state$t <- 1
         return(state)
       }
