@@ -15,15 +15,22 @@ copula_clayton <- list(
   # Latent variable V ~ Gamma(1/theta, 1)
   # Then U_i = (1 + E_i / V)^(-1/theta), E_i ~ Exp(1)
   simulate_u = function(theta, n) {
-    if (theta <= 0) return(NULL)  # Clayton parameter constraint
 
-    V <- rgamma(n = 1, shape = 1/theta, rate = 1)
-    if (!is.finite(V) || V <= 0) return(NULL)
+  # --- Independence case ---
+  if (abs(theta) < 1e-8) {
+    return(runif(n))
+  }
 
-    E <- rexp(n)
-    U <- (1 + E / V)^(-1/theta)
-    return(U)
-  },
+  # --- Invalid parameter ---
+  if (theta < 0) return(NULL)
+
+  # --- Clayton Archimedean simulation ---
+  V <- rgamma(n = 1, shape = 1 / theta, rate = 1)
+  if (!is.finite(V) || V <= 0) return(NULL)
+
+  E <- rexp(n)
+  (1 + E / V)^(-1 / theta)
+},
 
   # --------------------------
   # 2. Log-density of the Clayton copula

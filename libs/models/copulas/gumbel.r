@@ -5,18 +5,31 @@ copula_gumbel <- list(
   name = "gumbel",
 
   simulate_u = function(theta, n) {
-    if (theta < 1) return(NULL)
 
-    val_gamma <- (cos(pi / (2 * theta)))^theta
-    V <- stabledist::rstable(
-      n = 1, alpha = 1 / theta, beta = 1,
-      gamma = val_gamma, delta = 0, pm = 1
-    )
+  # --- Independence case ---
+  if (theta == 1) {
+    return(runif(n))
+  }
 
-    if (!is.finite(V) || V <= 0) return(NULL)
+  # --- Invalid parameter ---
+  if (theta < 1) return(NULL)
 
-    E <- rexp(n)
-    exp(-(E / V)^(1 / theta))
+  # --- Gumbel Archimedean simulation ---
+  val_gamma <- (cos(pi / (2 * theta)))^theta
+
+  V <- stabledist::rstable(
+    n = 1,
+    alpha = 1 / theta,
+    beta  = 1,
+    gamma = val_gamma,
+    delta = 0,
+    pm    = 1
+  )
+
+  if (!is.finite(V) || V <= 0) return(NULL)
+
+  E <- rexp(n)
+  exp(-(E / V)^(1 / theta))
   },
 
   log_density = function(u, theta) {
