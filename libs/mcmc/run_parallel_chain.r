@@ -25,6 +25,7 @@ run_parallel_chains <- function(
         cl,
         varlist = unique(c(
             "run_chain",
+            "n_iter",
             "log_target",
             "proposal",
             "adapt",
