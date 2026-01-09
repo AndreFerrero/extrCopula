@@ -258,3 +258,36 @@ legend("bottomright",
        pch = c(NA, NA, NA, 15),
        pt.cex = 2,
        bty = "n")
+
+# ----------------------------
+# Full-grid ISE
+# ----------------------------
+G_mean <- stats$mean
+G_med  <- stats$median
+
+squared_diff_mean <- (G_mean - G_true)^2
+squared_diff_med  <- (G_med - G_true)^2
+
+dy <- diff(y_grid)[1]      # uniform grid spacing
+ISE_mean <- sum(squared_diff_mean) * dy
+ISE_med  <- sum(squared_diff_med)  * dy
+
+cat("Full-grid ISE (Mean):", ISE_mean, "\n")
+cat("Full-grid ISE (Median):", ISE_med, "\n")
+
+# ----------------------------
+# Tail ISE (e.g., G_true > 0.9)
+# ----------------------------
+tail_idx <- which(G_true > 0.9)          # indices for upper tail
+
+squared_diff_mean_tail <- squared_diff_mean[tail_idx]
+squared_diff_med_tail  <- squared_diff_med[tail_idx]
+
+# compute tail-grid spacing
+dy_tail <- diff(y_grid[tail_idx])[1]
+
+ISE_mean_tail <- sum(squared_diff_mean_tail) * dy_tail
+ISE_med_tail  <- sum(squared_diff_med_tail) * dy_tail
+
+cat("Tail ISE (Mean):", ISE_mean_tail, "\n")
+cat("Tail ISE (Median):", ISE_med_tail, "\n")
