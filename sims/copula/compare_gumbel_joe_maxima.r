@@ -92,14 +92,6 @@ maxima_df <- bind_rows(results)
 # ------------------------------
 maxima_df$theta <- factor(maxima_df$theta, levels = theta_vec)
 
-ggplot(maxima_df, aes(x = maxima, color = copula, linetype = theta)) +
-  geom_density() +
-  facet_wrap(~margin, scales = "free") +
-  labs(title = "Effect of Copula Dependence and Margin on Maxima",
-       x = "Maxima", y = "Density") +
-  theme_minimal() +
-  theme(legend.position = "bottom")
-
 ggplot(maxima_df, aes(x = maxima, color = theta, linetype = copula)) +
   geom_density(size = 1.2) +
   scale_x_log10() +  # logarithmic x-axis
