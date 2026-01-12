@@ -94,10 +94,10 @@ proposal <- proposal_gaussian_rw(Sigma0 = Sigma0)
 res <- run_chain(
   log_target = semibsl_logpost,
   init = phi_init,
-  n_iter = 5000,
+  n_iter = 25000,
   proposal = proposal,
-  burn_in = 2500,
-  adapt = adapt_haario(t0 = 100)
+  burn_in = 10000,
+  adapt = adapt_haario(t0 = 1000)
 )
 
 init_list <- list(
@@ -122,7 +122,7 @@ res_par <- run_parallel_chains(
 sbi_dir <- here("sims", "estim", "joint", "SBI")
 sbi_res_dir <- here(sbi_dir, "res")
 
-# save(res, Sigma0, file = here(sbi_res_dir, "semibsl_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
+save(res, Sigma0, file = here(sbi_res_dir, "semibsl_25kruns_10kburnin_with_haario_200sims_1kobs.Rdata"))
 
 # save(res_par, Sigma0, init_list, file = here(sbi_res_dir, "semibsl_4chains_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
 
@@ -133,7 +133,7 @@ samples_natural <- t(apply(res$samples, 1, g_inv))
 
 mcmc_samples <- mcmc(samples_natural)
 
-mcmc_clean <- window(mcmc_samples, start = 0 + 1, thin = 1)
+mcmc_clean <- window(mcmc_samples, start = res$burn_in + 1, thin = 1)
 
 mcmc_clean_par <- window(res_par, start = burn_in + 1, thin = 1)
 # =============================================================================
@@ -278,3 +278,4 @@ ISE_med_tail  <- sum(squared_diff_med_tail) * dy_tail
 
 cat("Tail ISE (Mean):", ISE_mean_tail, "\n")
 cat("Tail ISE (Median):", ISE_med_tail, "\n")
+
