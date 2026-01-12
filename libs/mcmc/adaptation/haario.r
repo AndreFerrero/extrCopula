@@ -14,14 +14,18 @@ adapt_haario <- function(
     #' Update proposal covariance using empirical covariance
     #'
     #' @param state Proposal state (contains Sigma, mean, t)
-    #' @param param Current parameter vector
+    #' @param param Current parameter vector x_t
     #' @param accept Logical, whether proposal was accepted
     #' @param iter Current iteration number
     update = function(state, param, accept, iter) {
+      # note: state values refer to iteration t-1
+      # init + first iteration
       state$t <- state$t + 1
-      delta <- param - state$mean
-      state$mean <- state$mean + delta / state$t
-      state$cov <- state$cov + (tcrossprod(delta) - state$cov) / state$t
+      old_mean <- state$mean
+      state$mean <- state$mean + (param - state$mean) / state$t # mean update
+
+      # Welford's algorithm
+      state$cov <- (state$t - 2) / (state$t - 1) * state$cov + 1/state$t * (tcrossprod(param - old_mean))
 
       if (iter > t0) {
         d <- length(param)

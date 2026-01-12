@@ -41,8 +41,7 @@ run_chain <- function(
 
     # Adaptation during burn_in
     if (adapting && i <= burn_in) {
-      res <- adapt$update(prop_state, param, accept[i], i)
-      prop_state <- res$state
+      prop_state <- adapt$update(prop_state, param, accept[i], i)
     }
 
     # Force adaptation stop at burn-in
@@ -57,10 +56,24 @@ run_chain <- function(
   close(pb)
   colnames(samples) <- names(init)
 
+  burn_in_accept_rate <- if (burn_in > 0) {
+    mean(accept[1:burn_in])
+  } else {
+    NA_real_
+  }
+
+  after_burn_in_accept_rate <- if (burn_in < n_iter) {
+    mean(accept[(burn_in + 1):n_iter])
+  } else {
+    NA_real_
+  }
+
   list(
-    samples      = samples,
-    burn_in       = burn_in,
-    accept_rate  = mean(accept),
-    conv_state   = prop_state
+    samples = samples,
+    burn_in = burn_in,
+    accept_rate = mean(accept),
+    after_burn_in_accept_rate = after_burn_in_accept_rate,
+    burn_in_accept_rate = burn_in_accept_rate,
+    conv_state = prop_state
   )
 }

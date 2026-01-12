@@ -11,12 +11,12 @@
 adapt_hybrid <- function(
   target_accept = 0.234,
   gamma0 = 1,
-  kappa = 0.6,  # 0.6 is often more stable than 1
+  kappa = 0.6, # 0.6 is often more stable than 1
   eps = 1e-6,
   t0 = 0
 ) {
-
   list(
+    type = "hybrid",
     update = function(state, param, accept, iter) {
       d <- length(param)
 
@@ -26,15 +26,17 @@ adapt_hybrid <- function(
       log_scale <- log(state$scale) + gamma_t * (as.numeric(accept) - target_accept)
       state$scale <- exp(log_scale)
 
+      # note: state values refer to iteration t-1
+      # init + first iteration
+      state$t <- state$t + 1
+      old_mean <- state$mean
+      state$mean <- state$mean + (param - state$mean) / state$t # mean update
+
+      # Welford's algorithm
+      state$cov <- (state$t - 2) / (state$t - 1) * state$cov + 1/state$t * (tcrossprod(param - old_mean))
+
       # --- 2. Haario: adapt shape (starts after t0) ---
       if (iter > t0) {
-        # t counts the number of ADAPTIVE iterations
-        state$t <- state$t + 1
-        
-        delta <- param - state$mean
-        state$mean <- state$mean + delta / state$t
-        state$cov  <- state$cov + (tcrossprod(delta) - state$cov) / state$t
-        
         # Base matrix is now the empirical covariance
         base_matrix <- state$cov
       } else {
@@ -44,7 +46,7 @@ adapt_hybrid <- function(
 
       # --- 3. Update proposal covariance ---
       # Paper convention: Sigma = lambda * Cov
-      # Using scale^2 here matches your logic (scale as a jump-size multiplier)
+      # Using scale^2 here matches your logic
       state$Sigma <- state$scale^2 * (base_matrix + eps * diag(d))
 
       state

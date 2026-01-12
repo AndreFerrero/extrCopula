@@ -66,7 +66,7 @@ med_mad_max <- function(x) {
 
 log_jacobian <- function(phi) phi[2] + phi[3]
 
-logpost <- build_bsl_logposterior(
+semibsl_logpost <- build_bsl_logposterior(
   copula = copula_gumbel, margin = margin_lognormal,
   param_map = param_map,
   data = X,
@@ -92,11 +92,12 @@ Sigma0 <- diag(0.001, p, p)
 proposal <- proposal_gaussian_rw(Sigma0 = Sigma0)
 
 res <- run_chain(
-  log_target = logpost,
+  log_target = semibsl_logpost,
   init = phi_init,
-  n_iter = 2000,
+  n_iter = 5000,
   proposal = proposal,
-  adapt = adapt_haario()
+  burn_in = 2500,
+  adapt = adapt_haario(t0 = 100)
 )
 
 init_list <- list(
@@ -123,9 +124,9 @@ sbi_res_dir <- here(sbi_dir, "res")
 
 # save(res, Sigma0, file = here(sbi_res_dir, "semibsl_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
 
-save(res_par, Sigma0, init_list, file = here(sbi_res_dir, "semibsl_4chains_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
+# save(res_par, Sigma0, init_list, file = here(sbi_res_dir, "semibsl_4chains_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
 
-load(here(sbi_res_dir, "semibsl_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
+# load(here(sbi_res_dir, "semibsl_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
 
 # Convert samples back to natural space
 samples_natural <- t(apply(res$samples, 1, g_inv))
@@ -141,6 +142,8 @@ mcmc_clean_par <- window(res_par, start = burn_in + 1, thin = 1)
 res$conv
 
 cat("Acceptance rate:", res$accept_rate, "\n")
+cat("Acceptance rate during burn-in:", res$burn_in_accept_rate, "\n")
+cat("Acceptance rate after burn-in:", res$after_burn_in_accept_rate, "\n")
 
 summary(mcmc_clean_par)
 effectiveSize(mcmc_clean_par)
