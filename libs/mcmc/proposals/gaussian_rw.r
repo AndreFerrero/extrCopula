@@ -15,7 +15,7 @@ proposal_gaussian_rw <- function(Sigma0) {
       list(
         Sigma  = Sigma0,              # current covariance used for proposals
         Sigma0 = Sigma0,              # reference covariance for scaling
-        cov    = diag(1e-3, length(param))
+        cov    = Sigma0
 ,              # empirical covariance
         mean   = param,              # running mean of chain
         t      = 1,                  # iteration counter

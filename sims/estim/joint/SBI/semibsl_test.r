@@ -8,6 +8,7 @@ source("libs/packages.R")
 # Load models
 source("libs/models/copulas/gumbel.R")
 source("libs/models/margins/lognormal.R")
+source("libs/models/margins/frechet.R")
 source("libs/models/builders/maxima_distribution.r")
 
 # Load builders
@@ -65,7 +66,7 @@ med_mad_max <- function(x) {
 
 log_jacobian <- function(phi) phi[2] + phi[3]
 
-logpost <- build_bsl_logposterior(
+semibsl_logpost <- build_bsl_logposterior(
   copula = copula_gumbel, margin = margin_lognormal,
   param_map = param_map,
   data = X,
@@ -82,20 +83,21 @@ logpost <- build_bsl_logposterior(
 # =============================================================================
 phi_init <- g(c(mu = 0, sigma = 1, theta = 2))
 p <- 3
-# Sigma0 <- diag(0.001, p, p)
-Sigma0 <- matrix(
-  c(0.56, -0.12, 0.038,
-    -0.12, 0.08, 0.09,
-    0.038, 0.09, 0.23), nrow = p, ncol = p, byrow = TRUE)
+Sigma0 <- diag(0.001, p, p)
+# Sigma0 <- matrix(
+#   c(0.56, -0.12, 0.038,
+#     -0.12, 0.08, 0.09,
+#     0.038, 0.09, 0.23), nrow = p, ncol = p, byrow = TRUE)
 
 proposal <- proposal_gaussian_rw(Sigma0 = Sigma0)
 
 res <- run_chain(
-  log_target = logpost,
+  log_target = semibsl_logpost,
   init = phi_init,
-  n_iter = 20000,
+  n_iter = 5000,
   proposal = proposal,
-  adapt = adapt_none()
+  burn_in = 2500,
+  adapt = adapt_haario(t0 = 100)
 )
 
 init_list <- list(
@@ -122,18 +124,16 @@ sbi_res_dir <- here(sbi_dir, "res")
 
 # save(res, Sigma0, file = here(sbi_res_dir, "semibsl_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
 
-save(res_par, Sigma0, init_list, file = here(sbi_res_dir, "semibsl_4chains_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
+# save(res_par, Sigma0, init_list, file = here(sbi_res_dir, "semibsl_4chains_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
 
-load(here(sbi_res_dir, "semibsl_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
+# load(here(sbi_res_dir, "semibsl_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
 
 # Convert samples back to natural space
 samples_natural <- t(apply(res$samples, 1, g_inv))
 
 mcmc_samples <- mcmc(samples_natural)
 
-burn_in <- nrow(samples_natural)/3
-# burn_in <- 0
-mcmc_clean <- window(mcmc_samples, start = burn_in + 1, thin = 1)
+mcmc_clean <- window(mcmc_samples, start = 0 + 1, thin = 1)
 
 mcmc_clean_par <- window(res_par, start = burn_in + 1, thin = 1)
 # =============================================================================
@@ -142,6 +142,8 @@ mcmc_clean_par <- window(res_par, start = burn_in + 1, thin = 1)
 res$conv
 
 cat("Acceptance rate:", res$accept_rate, "\n")
+cat("Acceptance rate during burn-in:", res$burn_in_accept_rate, "\n")
+cat("Acceptance rate after burn-in:", res$after_burn_in_accept_rate, "\n")
 
 summary(mcmc_clean_par)
 effectiveSize(mcmc_clean_par)
@@ -150,21 +152,6 @@ gelman.diag(mcmc_clean_par)
 # Traceplot
 plot(mcmc_clean)
 plot(mcmc_clean_par)
-
-# Arrange 1 row and 3 columns
-par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))  # smaller margins for tighter plots
-
-plot(as.matrix(mcmc_clean[, "mu"]), type = "l",
-     ylab = "mu", xlab = "Iteration", main = "Trace of mu")
-
-plot(as.matrix(mcmc_clean[, "sigma"]), type = "l",
-     ylab = "sigma", xlab = "Iteration", main = "Trace of sigma")
-
-plot(as.matrix(mcmc_clean[, "theta"]), type = "l",
-     ylab = "theta", xlab = "Iteration", main = "Trace of theta")
-
-# Reset par
-par(mfrow = c(1,1))
 
 pairs(as.matrix(mcmc_clean))
 
