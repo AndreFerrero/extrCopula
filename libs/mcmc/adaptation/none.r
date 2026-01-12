@@ -4,7 +4,7 @@
 adapt_none <- function() {
 
   list(
-
+    type = "none",
     #' Update proposal state (identity)
     #'
     #' @param state Current proposal state

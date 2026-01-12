@@ -22,6 +22,7 @@ adapt_haario <- function(
   t_min = 1000
 ) {
   list(
+    type = "haario",
     #' Update proposal covariance using empirical covariance
     #'
     #' @param state Proposal state (contains Sigma, mean, t)
