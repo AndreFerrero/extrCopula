@@ -3,8 +3,9 @@ title: "Joint Copula Bayesian Modelling"
 author: "Andrea Ferrero"
 format:
   pdf:
-    toc: true
-    toc-depth: 3
+    number-sections: true
+toc: true
+toc-depth: 3
 ---
 
 # Motivation
@@ -138,12 +139,14 @@ $$
 
 To sample from this posterior, a simple algorithm is a Random Walk Metropolis–Hastings. Crucial is the proposal covariance $\Sigma_0$ set at the beginning. This determines the efficiency of the sampler while exploring the posterior distribution. Higher variance in the proposals implies the sampler will take with higher probability further steps, moving quicker around the posterior space but with a higher probability of ending up in regions of low posterior probability, increasing therefore the risk of rejection. In contrast, smaller proposal variance induces the sampler to take shorter steps, decreasing the risk of being rejected but at the same time exploring the posterior space more slowly. A good balance needs to be found and no simple solution exists.
 
+For constrained parameters (like positive scale parameters, or the parameter of some copulas like the gumbel), transformations to unconstrained spaces are encouraged, with the caveat of adding the Jacobian adjustment to the posterior computation if the proposal distribution is in the original space.
+
 **Algorithm 1: Metropolis--Hastings**
 
 1. **Initialisation:**
    - Set the initial parameter vector $\boldsymbol{\phi}^{(0)}$
    - Compute the initial log-posterior $\ell_{\text{curr}} = \ell(\boldsymbol{\phi}^{(0)})$
-   - Set the proposal covariance $\Sigma_0 = \varepsilon_0 I_d$
+   - Set the proposal covariance $\Sigma_0$
 
 2. **For** $t = 1, \dots, N$:
    1. **Proposal:**  
@@ -170,11 +173,11 @@ To sample from this posterior, a simple algorithm is a Random Walk Metropolis–
 
 To overcome the choice of the proposal covariance $\Sigma_0$, adaptive methods have been proposed. The idea behind adaptive MCMC is to learn the optimal proposal variance while the chain is running, or to target a specific acceptance rate considered to be optimal. In the case of multidimensional posterior, a standard acceptance rate to target is $\alpha^* = 0.234$.
 
-We considered mainly two adaptive schemes: the Haario scheme and the Robbins-Monroe scheme.
+There are two main schemes which often implemented: the Haario scheme and the Robbins-Monroe scheme.
 
-The first one simply starts by an arbitrary covariance and updates it by computing the empirical covariance $\hat{\Sigma}$ of the chains at that moment. Instead, Robbins-Monroe scheme targets a specific acceptance rate $\alpha^*$ by updating the scale of the covariance iteratively.
+The first one simply starts by an arbitrary covariance $\Sigma_0$ and updates it by computing the empirical covariance $\hat{\Sigma}$ of the chains, for example at every iteration. Instead, Robbins-Monroe scheme targets a specific acceptance rate $\alpha^*$ by updating the scale of the covariance iteratively, so the new covariance is of the form $\Sigma_t = \lambda_t \Sigma_0$.
 
-Care must be taken when using adaptive methods as theoretical guarantees of ergodicity require some assumptions to be met, one of which is for example diminishing adaptation, to ensure that after a while adaptation practically stops and we ensure the Markov Chain will converge to its stationary distribution.
+Care must be taken when using adaptive methods as theoretical guarantees of ergodicity require some assumptions to be met, one of which is for example diminishing adaptation, to ensure that after a while adaptation practically stops and we ensure the Markov Chain will converge to its stationary distribution. Many suggest to simply use adaptation during the burn-in period and then freeze the obtained covariance to preserve ergodicity.
 
 ## Joint Copula Likelihood Intractability
 
@@ -205,7 +208,7 @@ This approach allows us to perform Metropolis-Hastings MCMC by approximating $\a
 
 ### Lognormal - Gumbel model
 
-With the lognormal model, the parameters of interest are $\phi = (\mu, \sigma, \theta)$. We generated data with the true parameter vector $\phi_{true} = (0, 1, 2)$ The statistics we chose are the median $med(x)$, the median absolute deviation defined as $mad(x) = med(|x_i - med(x)|)$, which is a robust estimator for the variance, and the $max(x)$.
+With the lognormal model, the parameters of interest are $\phi = (\mu, \sigma, \theta)$. We generated data with the true parameter vector $\phi_{true} = (0, 1, 2)$. The chosen statistics are the median $med(x)$, the median absolute deviation defined as $mad(x) = med(|x_i - med(x)|)$, which is a robust estimator for the variance, and the $max(x)$.
 
 The MCMC results we have so far were obtained by running a burn-in period with the Haario adaptive scheme, and the obtained covariance was used to run a standard Metropolis-Hastings for the remaining iterations. The posterior distributions are roughly centered at the true generating values. MCMC efficiency could do with some improvement, as the Effective Sample Size is rather low compared to the number of MCMC iterations after burn in. Multiple chains were also run under a different sampling setup and mixing was found to be rather good. They are not reported in this case for simplicity, but it would be a necessary step if final conclusions were to be drawn from the Bayesian model.
 
