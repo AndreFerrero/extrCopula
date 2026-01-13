@@ -12,6 +12,7 @@ data/
 
 *rdb
 *rdx
+*pdf
 
 # Logs
 *.log
