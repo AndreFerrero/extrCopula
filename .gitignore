@@ -15,13 +15,15 @@ data/
 *.csv
 
 # -----------------------------
-# Quarto / R Markdown output (any folder depth)
+# Notes folder ignored except for raw docs
 # -----------------------------
-notes/joint_bayes_cache/       # Quarto/Rmd caches
-notes/joint_bayes_files/       # Supporting files for HTML
-_site/            # Quarto website output
-_book/            # Quarto book output
-**/*_figures/     # optional: figures saved automatically
+# Ignore everything in notes/
+notes/**
+
+# Except .Rmd and .qmd files
+!notes/**/*.Rmd
+!notes/**/*.qmd
+
 
 
 # Rendered documents (optional)
