@@ -1,6 +1,7 @@
 ---
-title: "Supervisors Meeting Log"
-format: html
+title: "Meetings log"
+author: "Andrea Ferrero"
+format: pdf
 toc: true
 toc-depth: 3
 ---
@@ -90,12 +91,20 @@ toc-depth: 3
 
 **Topics:** Recap, fixing ideas and doubts on current and potential approaches, showing current results  
 
-**Description:**  
-- Likelihood intractability in high dimensions (n > 220 for Gumbel copula) motivates **Simulation-Based Inference**, specifically **Semiparametric Bayesian Synthetic Likelihood**.  
-- Sample from the model, summarize with informative statistics, approximate posterior from distribution of sampled statistics.  
+**Description:**
+
+- Likelihood intractability in high dimensions (n > 220 for Gumbel copula) motivates **Simulation-Based Inference**, specifically **Semiparametric Bayesian Synthetic Likelihood**.
+
+**Idea**: Sample from the model, summarize with informative statistics, approximate posterior from distribution of sampled statistics.  
+
 - Metropolis-Hastings step uses this synthetic posterior for acceptance ratio.  
 - Adaptive MCMC methods improve sampler efficiency (proposal covariance adaptation, targeting acceptance rate ~0.234).  
-- Fully parametric model (lognormal F, Gumbel copula θ) gives results on maxima distribution.  
+- Fully parametric model (lognormal F, Gumbel copula θ) gives results on maxima distribution by linking it to the diagonal of the copula. The model was fitted with the median, median absolute deviation (MAD), maximum. They are informative on the 3 parameters of the model.
+- Parametric F should give an idea of the limit H, allowing to use $D(H)$. This can be better than using the finite sample diagonal
+- Parametric model, especially using the finite sample diagonal is not robust to misspecification of the margin (Frechet data and lognormal model already showed it with a quick test)
+
+**Idea**: semiparametric model for the margin F, where the tail is parametric and still gives a connection to the distribution H, allowing to use $D(H)$.
+**Note**: MCMC needs to be carefully implemented and Bayesian Nonparametric part for the bulk of the data is non trivial.
 
 ---
 

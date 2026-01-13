@@ -1,17 +1,17 @@
 ---
 title: "Joint Copula Bayesian Modelling"
-output:
-  html_document:
+author: "Andrea Ferrero"
+format:
+  pdf:
     toc: true
-    toc_float: true
+    toc-depth: 3
 ---
-
 
 # Motivation
 
 We are assuming the following joint distribution for a sequence of random variables $(X_1, \dots, X_n) \sim C_\theta(F(X_1), \dots, F(X_n))$, with C a parametric copula (potentially archimedean) and F the marginal of each $X_i$.
 
-We know from simulation results that the likelihood peaks at the correct copula generating parameter if we take the realisations $U_1, \dots, U_n \sim C_\theta$. However, estimating the margin F from a realisation of $X_1, \dots, X_n$, to obtain the pseudo observations $\hat{U}_i = \hat{F}(X_i)$, leads to a likelihood which peaks at $\theta = 1$, the independence case in the Gumbel copula. This phenomenon could be explained by realising that we are using estimators for the margin which work under independence, but might fail under the dependence.
+We know from simulation results that the likelihood peaks at the correct copula generating parameter if we take the realisations $U_1, \dots, U_n \sim C_\theta$. However, estimating the margin F from a realisation of $X_1, \dots, X_n$, to obtain the pseudo observations $\hat{U}_i = \hat{F}(X_i)$, leads to a likelihood which peaks at $\theta = 1$, the independence case with Gumbel copula.
 
 ```{r lik plot sim, echo = F, cache = TRUE, message=F}
 set.seed(123)
@@ -87,7 +87,7 @@ ll_ecdf   <- sapply(theta_grid, loglik_gumbel, u = u_hat_ecdf)
 
 ```
 
-```{r lik plot, echo = FALSE}
+```{r lik plot, echo = FALSE, fig.width=10, fig.height=8}
 plot(theta_grid, ll_trueU, type="l", lwd=3, col="black",
      xlab=expression(theta), ylab="Log-likelihood",
      main = "Gumbel log-likelihood")
@@ -138,52 +138,33 @@ $$
 
 To sample from this posterior, a simple algorithm is a Random Walk Metropolis–Hastings. Crucial is the proposal covariance $\Sigma_0$ set at the beginning. This determines the efficiency of the sampler while exploring the posterior distribution. Higher variance in the proposals implies the sampler will take with higher probability further steps, moving quicker around the posterior space but with a higher probability of ending up in regions of low posterior probability, increasing therefore the risk of rejection. In contrast, smaller proposal variance induces the sampler to take shorter steps, decreasing the risk of being rejected but at the same time exploring the posterior space more slowly. A good balance needs to be found and no simple solution exists.
 
-\bigskip
-\noindent\textbf{Algorithm 1: Metropolis--Hastings}
+**Algorithm 1: Metropolis--Hastings**
 
-\begin{enumerate}
-\item \textbf{Initialisation:}
-  \begin{itemize}
-    \item Set the initial parameter vector 
-    \(\boldsymbol{\phi}^{(0)}\).
-    \item Compute the initial log-posterior 
-    \(\ell_{\text{curr}} = \ell(\boldsymbol{\phi}^{(0)})\).
-    \item Set the proposal covariance  
-      \(\Sigma_0 = \varepsilon_0 I_d\).
-  \end{itemize}
+1. **Initialisation:**
+   - Set the initial parameter vector $\boldsymbol{\phi}^{(0)}$
+   - Compute the initial log-posterior $\ell_{\text{curr}} = \ell(\boldsymbol{\phi}^{(0)})$
+   - Set the proposal covariance $\Sigma_0 = \varepsilon_0 I_d$
 
-\item \textbf{For} \(t = 1, \dots, N\):
-  \begin{enumerate}
-    \item \textbf{Proposal:}\\
-    Draw
-    \[
-    \boldsymbol{\phi}^\star \sim 
-      \mathcal{N}_d\!\left(\boldsymbol{\phi}^{(t-1)},\, \Sigma_0\right).
-    \]
+2. **For** $t = 1, \dots, N$:
+   1. **Proposal:**  
+      Draw  
+      $$
+      \boldsymbol{\phi}^\star \sim 
+      \mathcal{N}_d\big(\boldsymbol{\phi}^{(t-1)}, \Sigma_0\big)
+      $$
 
-    \item \textbf{Evaluate proposed log-posterior:}\\
-    Compute 
-    \(\ell^\star = \ell(\boldsymbol{\phi}^\star)\).
+   2. **Evaluate proposed log-posterior:**  
+      Compute $\ell^\star = \ell(\boldsymbol{\phi}^\star)$
 
-    \item \textbf{Acceptance probability:}\\
-    \[
-    \alpha = 
-    \min\{ 1,\,
-      \exp(\ell^\star - \ell_{\text{curr}})
-    \}.
-    \]
+   3. **Acceptance probability:**  
+      $$
+      \alpha = \min\{1, \exp(\ell^\star - \ell_{\text{curr}})\}
+      $$
 
-    \item \textbf{Accept/reject:}\\
-    Draw \(u\sim\mathrm{Unif}(0,1)\).
-    \begin{itemize}
-      \item If \(u < \alpha\): set  
-        \(\boldsymbol{\phi}^{(t)} = \boldsymbol{\phi}^\star\)  
-        and \(\ell_{\text{curr}} = \ell^\star\).
-      \item Else: set  
-        \(\boldsymbol{\phi}^{(t)} = \boldsymbol{\phi}^{(t-1)}\).
-    \end{itemize}
-  \end{enumerate}
-\end{enumerate}
+   4. **Accept/reject:**  
+      Draw $u \sim \mathrm{Unif}(0,1)$  
+      - If $u < \alpha$: set $\boldsymbol{\phi}^{(t)} = \boldsymbol{\phi}^\star$ and $\ell_{\text{curr}} = \ell^\star$ 
+      - Else: set $\boldsymbol{\phi}^{(t)} = \boldsymbol{\phi}^{(t-1)}$
 
 ## Adaptive algorithms
 
@@ -199,7 +180,7 @@ Care must be taken when using adaptive methods as theoretical guarantees of ergo
 
 The loglikelihood of our model is intractable due to the log density of the copula. After a certain sample size, this quantity cannot be easily computed, making inference impossible even for a moderately big sample.
 
-```{r, error=TRUE}
+```{r copula density error, error=TRUE}
 library(copula)
 set.seed(123)
 
@@ -212,9 +193,68 @@ U <- as.numeric(rCopula(1, cop))   # true uniforms
 dCopula(U, gumbelCopula(theta_true, dim = n))
 ```
 
-## Simulation Based Inference
+## Simulation Based Inference - Bayesian Synthetic Likelihood
 
 This branch of Bayesian inference overcomes the problem of intractable likelihood that makes posterior sampling otherwise impossible. Indeed, to compute $\alpha$ the likelihood needs to be evaluated for the proposed parameter $\phi^*$.
 
 The main idea is to (efficiently) sample from the model multiple times and to summarise the obtained samples with summary statistics that are informative about the parameters of interest. With the Bayesian Synthetic Likelihood (BSL) approach, the joint distribution of the summary statistics is used to approximate the likelihood for the proposed parameter vector.
 
+The original approach consisted in assuming the joint distribution of the statistics was multivariate normal. A refined, semiparametric approach estimates the marginal distributions with KDE and models eventual dependence with a Gaussian copula. See An et al. 2019.
+
+This approach allows us to perform Metropolis-Hastings MCMC by approximating $\alpha$ with the approximate "synthetic" likelihood.
+
+### Lognormal - Gumbel model
+
+With the lognormal model, the parameters of interest are $\phi = (\mu, \sigma, \theta)$. We generated data with the true parameter vector $\phi_{true} = (0, 1, 2)$ The statistics we chose are the median $med(x)$, the median absolute deviation defined as $mad(x) = med(|x_i - med(x)|)$, which is a robust estimator for the variance, and the $max(x)$.
+
+The MCMC results we have so far were obtained by running a burn-in period with the Haario adaptive scheme, and the obtained covariance was used to run a standard Metropolis-Hastings for the remaining iterations. The posterior distributions are roughly centered at the true generating values. MCMC efficiency could do with some improvement, as the Effective Sample Size is rather low compared to the number of MCMC iterations after burn in. Multiple chains were also run under a different sampling setup and mixing was found to be rather good. They are not reported in this case for simplicity, but it would be a necessary step if final conclusions were to be drawn from the Bayesian model.
+
+```{r loading mcmc lognormal gumbel model, echo = FALSE, message = FALSE}
+library(here)
+
+sbi_folder <- here("sims/estim/joint/SBI")
+sbi_res_folder <- here(sbi_folder, "res")
+sbi_plot_folder <- here(sbi_folder, "plots")
+
+load(here(sbi_res_folder, "semibsl_25kruns_10kburnin_with_haario_200sims_1kobs.Rdata"))
+
+g_inv <- function(phi) {
+  param <- c(
+    mu    = phi[1],
+    sigma = exp(phi[2]),
+    theta = exp(phi[3]) + 1
+  )
+  # Ensure names are exactly what we want
+  names(param) <- c("mu", "sigma", "theta")
+  param
+}
+```
+
+```{r res mcmc lognormal gumbel, echo = FALSE}
+library(coda)
+samples_natural <- t(apply(res$samples, 1, g_inv))
+
+mcmc_samples <- mcmc(samples_natural)
+
+mcmc_clean <- window(mcmc_samples, start = res$burn_in + 1, thin = 1)
+
+summary(mcmc_clean)
+```
+
+```{r, echo = FALSE}
+cat("Effective Sample Size \n (mu, sigma, theta): \n", effectiveSize(mcmc_clean))
+```
+
+```{r plot mcmc, echo = FALSE, fig.width=10, fig.height=8}
+plot(mcmc_clean)
+```
+
+From here, the simplest conclusion we can already draw on the distribution of the maxima exploits the connection with the copula diagonal, namely:
+
+$$
+G(x) = P(M_n < x) = \delta_\theta(F_{\mu, \sigma}(x)) = F_{\mu, \sigma}(x)^{n^{\frac{1}{\theta}}}
+$$
+
+Direct use of posterior parameter draws allows us to construct the posterior distribution of the maximum:
+
+![](C:\Users\Andrea Ferrero\extremesCopula\sims\estim\joint\SBI\plots\maxima_theta2_lognormal_25kiter_10kburnin_with_haario_200sims_1kobs.pdf){fig-align="center"}
