@@ -116,7 +116,7 @@ The simplest approach consists in assuming a parametric form for the margin, tha
 (X_1, \dots, X_n) | \; \theta &, \varphi \sim C_\theta (F_\varphi (X_1), \dots, F_\varphi (X_n))
 \end{align*}
 
-## 2.1 Adaptive MCMC
+## 2.1 Posterior sampling with MCMC
 
 We aim to sample from the joint log posterior:
 \[
@@ -181,6 +181,8 @@ To sample from this posterior, a simple algorithm is a Random Walk Metropolis–
   \end{enumerate}
 \end{enumerate}
 
+## 2.2 Adaptive algorithms
+
 To overcome the choice of the proposal covariance $\Sigma_0$, adaptive methods have been proposed. The idea behind adaptive MCMC is to learn the optimal proposal variance while the chain is running, or to target a specific acceptance rate considered to be optimal. In the case of multidimensional posterior, a standard acceptance rate to target is $\alpha^* = 0.234$.
 
 We considered mainly two adaptive schemes: the Haario scheme and the Robbins-Monroe scheme.
@@ -189,7 +191,7 @@ The first one simply starts by an arbitrary covariance and updates it by computi
 
 Care must be taken when using adaptive methods as theoretical guarantees of ergodicity require some assumptions to be met, one of which is for example diminishing adaptation, to ensure that after a while adaptation practically stops and we ensure the Markov Chain will converge to its stationary distribution.
 
-## 2.2 Joint Copula Likelihood Intractability
+## 2.3 Joint Copula Likelihood Intractability
 
 The loglikelihood of our model is intractable due to the log density of the copula. After a certain sample size, this quantity cannot be easily computed, making inference impossible even for a moderately big sample.
 
@@ -206,7 +208,7 @@ U <- as.numeric(rCopula(1, cop))   # true uniforms
 dCopula(U, gumbelCopula(theta_true, dim = n))
 ```
 
-## 2.3 Simulation Based Inference
+## 2.4 Simulation Based Inference
 
 This branch of Bayesian inference overcomes the problem of intractable likelihood that makes posterior sampling otherwise impossible. Indeed, to compute $\alpha$ the likelihood needs to be evaluated for the proposed parameter $\phi^*$.
 
