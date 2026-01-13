@@ -6,4 +6,4 @@ rmarkdown::render("notes/copula_markov.Rmd")
 
 rmarkdown::render("notes/uni_copula.Rmd")
 
-rmarkdown::render("notes/joint_bayes.Rmd")
+quarto render notes/joint_bayes.qmd

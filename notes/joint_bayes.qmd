@@ -1,19 +1,23 @@
 ---
 title: "Joint Copula Bayesian Modelling"
-output: 
-  pdf_document
+format:
+  html:
+    toc: true
+    toc-location: left
+    number-sections: true
+    mathjax: true
 ---
 
 
-# 1. Motivation
+# Motivation
 
 We are assuming the following joint distribution for a sequence of random variables $(X_1, \dots, X_n) \sim C_\theta(F(X_1), \dots, F(X_n))$, with C a parametric copula (potentially archimedean) and F the marginal of each $X_i$.
 
 We know from simulation results that the likelihood peaks at the correct copula generating parameter if we take the realisations $U_1, \dots, U_n \sim C_\theta$. However, estimating the margin F from a realisation of $X_1, \dots, X_n$, to obtain the pseudo observations $\hat{U}_i = \hat{F}(X_i)$, leads to a likelihood which peaks at $\theta = 1$, the independence case in the Gumbel copula. This phenomenon could be explained by realising that we are using estimators for the margin which work under independence, but might fail under the dependence.
 
-```{r lik plot sim, echo = F, cache = TRUE}
+```{r lik plot sim, echo = F, cache = TRUE, message=F}
 set.seed(123)
-
+library(copula)
 # -----------------------------------------------------------
 # 1. TRUE parameter and dimension
 # -----------------------------------------------------------
@@ -105,32 +109,34 @@ legend("topright",
 
 The idea is to avoid the 2 steps procedure by performing estimation on the margin and the copula parameter simultaneously. A fully bayesian model would inherently consider both objects as targets, and might be able to consider the dependence structure while estimating the margin.
 
-\newpage
-
-# 2. Bayesian Model with Parametric Margin
+# Bayesian Model with Parametric Margin
 
 The simplest approach consists in assuming a parametric form for the margin, that is $X_i \sim F_\varphi$, with $\varphi$ a generic parameter vector. Hierarchically, this yields the following structure:
 
-\begin{align*}
+$$
+\begin{aligned}
 \varphi \sim \pi_\varphi \, &, \quad \theta \sim \pi_\theta \\
 (X_1, \dots, X_n) | \; \theta &, \varphi \sim C_\theta (F_\varphi (X_1), \dots, F_\varphi (X_n))
-\end{align*}
+\end{aligned}
+$$
 
-## 2.1 Posterior sampling with MCMC
+## Posterior sampling with MCMC
 
 We aim to sample from the joint log posterior:
-\[
+
+$$
 \log \pi(\theta,\varphi \mid x_{1:n})
 \;\propto\;
 \log \pi_\theta(\theta) +
 \log \pi_\varphi(\varphi) +
 \log c_\theta\!\left(F_\varphi(x_1), \dots, F_\varphi(x_n)\right) + 
 \sum_{i=1}^n \log f_\varphi(x_i).
-\]
+$$
+
 We will call the full parameter vector:
-\[
+$$
 \boldsymbol{\phi} = (\theta,\varphi)\in\mathbb{R}^d.
-\]
+$$
 
 To sample from this posterior, a simple algorithm is a Random Walk Metropolis–Hastings. Crucial is the proposal covariance $\Sigma_0$ set at the beginning. This determines the efficiency of the sampler while exploring the posterior distribution. Higher variance in the proposals implies the sampler will take with higher probability further steps, moving quicker around the posterior space but with a higher probability of ending up in regions of low posterior probability, increasing therefore the risk of rejection. In contrast, smaller proposal variance induces the sampler to take shorter steps, decreasing the risk of being rejected but at the same time exploring the posterior space more slowly. A good balance needs to be found and no simple solution exists.
 
@@ -181,7 +187,7 @@ To sample from this posterior, a simple algorithm is a Random Walk Metropolis–
   \end{enumerate}
 \end{enumerate}
 
-## 2.2 Adaptive algorithms
+## Adaptive algorithms
 
 To overcome the choice of the proposal covariance $\Sigma_0$, adaptive methods have been proposed. The idea behind adaptive MCMC is to learn the optimal proposal variance while the chain is running, or to target a specific acceptance rate considered to be optimal. In the case of multidimensional posterior, a standard acceptance rate to target is $\alpha^* = 0.234$.
 
@@ -191,7 +197,7 @@ The first one simply starts by an arbitrary covariance and updates it by computi
 
 Care must be taken when using adaptive methods as theoretical guarantees of ergodicity require some assumptions to be met, one of which is for example diminishing adaptation, to ensure that after a while adaptation practically stops and we ensure the Markov Chain will converge to its stationary distribution.
 
-## 2.3 Joint Copula Likelihood Intractability
+## Joint Copula Likelihood Intractability
 
 The loglikelihood of our model is intractable due to the log density of the copula. After a certain sample size, this quantity cannot be easily computed, making inference impossible even for a moderately big sample.
 
@@ -208,7 +214,7 @@ U <- as.numeric(rCopula(1, cop))   # true uniforms
 dCopula(U, gumbelCopula(theta_true, dim = n))
 ```
 
-## 2.4 Simulation Based Inference
+## Simulation Based Inference
 
 This branch of Bayesian inference overcomes the problem of intractable likelihood that makes posterior sampling otherwise impossible. Indeed, to compute $\alpha$ the likelihood needs to be evaluated for the proposed parameter $\phi^*$.
 
