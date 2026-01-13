@@ -17,11 +17,12 @@ data/
 # -----------------------------
 # Quarto / R Markdown output (any folder depth)
 # -----------------------------
-notes/*_cache/       # Quarto/Rmd caches
-notes/*_files/       # Supporting files for HTML
+**/notes/*_cache/       # Quarto/Rmd caches
+**/notes/*_files/       # Supporting files for HTML
 _site/            # Quarto website output
 _book/            # Quarto book output
 **/*_figures/     # optional: figures saved automatically
+
 
 # Rendered documents (optional)
 *.html
