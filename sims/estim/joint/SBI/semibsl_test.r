@@ -100,33 +100,33 @@ res <- run_chain(
   adapt = adapt_haario(t0 = 1000)
 )
 
-init_list <- list(
-  init_1 = g(c(mu = 0, sigma = 1, theta = 2)),
-  init_2 = g(c(mu = 0.5, sigma = 0.5, theta = 1.5)),
-  init_3 = g(c(mu = -0.5, sigma = 1.5, theta = 2.5)),
-  init_4 = g(c(mu = 1, sigma = 2, theta = 3))
-)
+# init_list <- list(
+#   init_1 = g(c(mu = 0, sigma = 1, theta = 2)),
+#   init_2 = g(c(mu = 0.5, sigma = 0.5, theta = 1.5)),
+#   init_3 = g(c(mu = -0.5, sigma = 1.5, theta = 2.5)),
+#   init_4 = g(c(mu = 1, sigma = 2, theta = 3))
+# )
 
-res_par <- run_parallel_chains(
-  log_target = logpost,
-  init_values = init_list,
-  n_iter = 20000,
-  proposal = proposal,
-  n_cores = 4,
-  adapt = adapt_none(),
-  transform = g_inv,
-  export = c("g_inv", "margin_lognormal", "copula_gumbel",
-  "simulator", "synthetic_semibsl", "log_jacobian", "Sigma0", "mh_step")
-)
+# res_par <- run_parallel_chains(
+#   log_target = logpost,
+#   init_values = init_list,
+#   n_iter = 20000,
+#   proposal = proposal,
+#   n_cores = 4,
+#   adapt = adapt_none(),
+#   transform = g_inv,
+#   export = c("g_inv", "margin_lognormal", "copula_gumbel",
+#   "simulator", "synthetic_semibsl", "log_jacobian", "Sigma0", "mh_step")
+# )
 
 sbi_dir <- here("sims", "estim", "joint", "SBI")
 sbi_res_dir <- here(sbi_dir, "res")
 
-save(res, Sigma0, file = here(sbi_res_dir, "semibsl_25kruns_10kburnin_with_haario_200sims_1kobs.Rdata"))
+# save(res, Sigma0, file = here(sbi_res_dir, "semibsl_25kruns_10kburnin_with_haario_200sims_1kobs.Rdata"))
 
 # save(res_par, Sigma0, init_list, file = here(sbi_res_dir, "semibsl_4chains_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
 
-# load(here(sbi_res_dir, "semibsl_20kruns_200sims_1kobs_adaptnone_sigma0finalhybrid.Rdata"))
+load(here(sbi_res_dir, "semibsl_25kruns_10kburnin_with_haario_200sims_1kobs.Rdata"))
 
 # Convert samples back to natural space
 samples_natural <- t(apply(res$samples, 1, g_inv))
@@ -135,7 +135,7 @@ mcmc_samples <- mcmc(samples_natural)
 
 mcmc_clean <- window(mcmc_samples, start = res$burn_in + 1, thin = 1)
 
-mcmc_clean_par <- window(res_par, start = burn_in + 1, thin = 1)
+# mcmc_clean_par <- window(res_par, start = burn_in + 1, thin = 1)
 # =============================================================================
 # 4. Quick summaries
 # =============================================================================
@@ -279,3 +279,86 @@ ISE_med_tail  <- sum(squared_diff_med_tail) * dy_tail
 cat("Tail ISE (Mean):", ISE_mean_tail, "\n")
 cat("Tail ISE (Median):", ISE_med_tail, "\n")
 
+## Posterior Predictive Checking
+n_post <- 500           # number of posterior draws for predictive
+n_sim   <- length(X)    # sample size to simulate per draw
+
+set.seed(123)
+X_post <- replicate(n_post, {
+  # Sample a random posterior draw
+  idx <- sample(1:nrow(samples_natural), 1)
+  param_s <- samples_natural[idx, ]
+  simulator(param_s, n_sim)
+}, simplify = "matrix")
+
+library(ggplot2)
+
+X_post_vec <- as.vector(X_post)
+df_plot <- data.frame(
+  value = c(X, X_post_vec),
+  type  = rep(c("Observed", "Posterior Predictive"), 
+              c(length(X), length(X_post_vec)))
+)
+
+ggplot(df_plot, aes(x = value, fill = type)) +
+  geom_histogram(aes(y = ..density..), alpha = 0.5, position = "identity", bins = 30) +
+  geom_density(aes(color = type), size = 1) +
+  labs(title = "Posterior Predictive Check: Marginal Distribution")
+
+summary_stats <- function(X_vec, u_prob = 0.95){
+  X_ord <- sort(X_vec)
+  u <- quantile(X_vec, u_prob)
+  exceed <- which(X_vec > u)
+  
+  max_val <- max(X_vec)
+  spacing <- X_ord[length(X_vec)] - X_ord[length(X_vec)-1]
+  cond_exceed <- if(length(exceed) >= 2) (length(exceed)-1)/(length(X_vec)-1) else NA
+  dispersion <- sum(X_vec > u)
+  var_mean <- var(X_vec)
+  
+  c(max = max_val, spacing = spacing, cond_exceed = cond_exceed,
+    exceed_count = dispersion, var_mean = var_mean)
+}
+
+stats_post <- apply(X_post, 2, summary_stats)
+stats_obs  <- summary_stats(X)
+
+library(reshape2)
+
+# stats_post: matrix with rows = stats (max, spacing, etc.), cols = posterior replicates
+# Transpose so that rows = posterior samples, cols = statistics
+stats_post_df <- as.data.frame(t(stats_post))
+stats_post_df$replicate <- 1:nrow(stats_post_df)  # add row identifier
+
+# Melt: each row = one posterior replicate for one statistic
+stats_melt <- melt(stats_post_df, id.vars = "replicate",
+                   variable.name = "stat", value.name = "value")
+
+# Add observed statistics as a separate dataframe
+stats_obs_df <- data.frame(
+  stat = names(stats_obs),
+  value = as.numeric(stats_obs)
+)
+
+
+ggplot(stats_melt, aes(x = stat, y = value)) +
+  geom_boxplot() +
+  geom_point(data = data.frame(stat = names(stats_obs), value = stats_obs),
+             aes(x = stat, y = value), color = "red", size = 3) +
+  labs(title = "Posterior Predictive Check: Key Statistics",
+       subtitle = "Red dots = observed statistics")
+
+u <- quantile(X, 0.95)
+cond_exceed_post <- apply(X_post, 2, function(x) {
+  exc <- which(x > u)
+  if(length(exc) >= 2) (length(exc)-1)/(length(x)-1) else NA
+})
+
+ggplot(data.frame(cond_exceed_post), aes(x = cond_exceed_post)) +
+  geom_histogram(bins = 20, fill = "skyblue") +
+  geom_vline(xintercept = stats_obs["cond_exceed"], color = "red", lwd = 1.2) +
+  labs(title = "Conditional Exceedance Probability PPC")
+
+matplot(X_post[,1:50], type = "l", col = rgb(0,0,1,0.2), lty = 1,
+        ylab = "X", xlab = "Index", main = "Posterior Predictive Samples")
+lines(X, col = "red", lwd = 2)
